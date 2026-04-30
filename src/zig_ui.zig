@@ -13,3 +13,5 @@ pub const ImageData = @import("app.zig").ImageData;
 pub const SliderData = @import("app.zig").SliderData;
 
 pub const Color = @import("app.zig").Color;
+pub const Node = @import("app.zig").Node;
+pub const raylib = @import("raylib.zig").ray;
