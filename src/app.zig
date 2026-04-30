@@ -126,7 +126,7 @@ pub const SliderData = struct {
     value: u32,
     step: u32 = 1,
     max: u32 = 100,
-    ctx: *anyopaque = null,
+    ctx: ?*anyopaque = null,
     on_change: ?*const fn (*anyopaque, u32) void = null,
 };
 
