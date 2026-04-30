@@ -127,7 +127,7 @@ pub const SliderData = struct {
     step: u32 = 1,
     max: u32 = 100,
     ctx: ?*anyopaque = null,
-    on_change: ?*const fn (*anyopaque, u32) void = null,
+    on_change: ?*const fn (?*anyopaque, u32) void = null,
 };
 
 pub const Widget = union(enum) {
