@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
     const raylib = raylib_dep.artifact("raylib");
     raylib.root_module.addCMacro("SUPPORT_FILEFORMAT_JPG", "1");
     const my_module = b.addModule("zig_ui", .{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
