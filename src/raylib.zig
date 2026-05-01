@@ -199,7 +199,6 @@ pub fn measureText(clay_text: []const u8, config: *cl.TextElementConfig, _: void
     var text_height: f32 = font_size;
     const scale_factor: f32 = font_size / @as(f32, @floatFromInt(font.baseSize));
 
-    // Validate first — Clay's debug view passes truncated UTF-8 slices
     const view = std.unicode.Utf8View.init(clay_text) catch {
         return .{ .w = 0, .h = font_size };
     };
