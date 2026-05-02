@@ -14,8 +14,6 @@ pub const ScrollWidget = struct {
     vertical: bool = true,
     horizontal: bool = true,
     gap: u16 = 4,
-    last_ch: f32 = 0.0,
-    last_ct: f32 = 0.0,
 
     pub fn render(ptr: *anyopaque, w: Widget, children: []const Widget) void {
         const self: *ScrollWidget = @ptrCast(@alignCast(ptr));
@@ -26,42 +24,17 @@ pub const ScrollWidget = struct {
 
         const sc = clay.getScrollContainerData(content_eid);
 
-        var scroll_y: f32 = 0.0;
-
         if (sc.found) {
             const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
-            const max_scroll = @max(0.0, ct - ch);
-
-            const resized = (ch != self.last_ch) or (ct != self.last_ct);
-
-            if (resized) {
-                const old_max = @max(0.0, self.last_ct - self.last_ch);
-
-                var t: f32 = 0.0;
-                if (old_max > 0.0) {
-                    t = std.math.clamp(-sc.scroll_position.*.y / old_max, 0.0, 1.0);
-                }
-
-                sc.scroll_position.*.y = -t * max_scroll;
-            }
-
-            // Clamp final (toujours safe)
-            sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
-            scroll_y = sc.scroll_position.*.y;
-
-            // Update cache
-            self.last_ch = ch;
-            self.last_ct = ct;
-
             if (ct > ch) {
+                const max_scroll = ct - ch;
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
-                    const new_y = scroll_y - ray.GetMouseDelta().y * scale;
+                    const new_y = sc.scroll_position.*.y - ray.GetMouseDelta().y * scale;
                     sc.scroll_position.*.y = std.math.clamp(new_y, -max_scroll, 0.0);
-                    scroll_y = sc.scroll_position.*.y;
                 }
 
                 if (w.app.interactImpl(track_eid, false) == .mouse_released) {
@@ -75,9 +48,10 @@ pub const ScrollWidget = struct {
                             1.0,
                         );
                         sc.scroll_position.*.y = -new_t * max_scroll;
-                        scroll_y = sc.scroll_position.*.y;
                     }
                 }
+
+                sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             }
         }
 
@@ -96,7 +70,7 @@ pub const ScrollWidget = struct {
                 .clip = .{
                     .vertical = self.vertical,
                     .horizontal = self.horizontal,
-                    .child_offset = .{ .x = 0, .y = scroll_y },
+                    .child_offset = if (sc.found) sc.scroll_position.* else .{ .x = 0, .y = 0 },
                 },
             })({
                 for (children) |child| child.render();
@@ -107,33 +81,27 @@ pub const ScrollWidget = struct {
                 const ct = sc.content_dimensions.h;
                 if (ct > ch) {
                     const max_scroll = ct - ch;
-                    const t = std.math.clamp(-scroll_y / max_scroll, 0.0, 1.0);
-
-                    const ch_i: u32 = @intFromFloat(@floor(ch));
-                    const thumb_h_i: u32 = @max(20, @as(u32, @intFromFloat(@floor(ch * (ch / ct)))));
-                    const available_i: u32 = if (ch_i > thumb_h_i) ch_i - thumb_h_i else 0;
-                    const thumb_y_i: u32 = @min(
-                        @as(u32, @intFromFloat(@floor(t * @as(f32, @floatFromInt(available_i))))),
-                        available_i,
-                    );
+                    const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
+                    const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
+                    const available = @floor(ch - thumb_h);
+                    const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
 
                     clay.UI()(.{
                         .id = track_eid,
                         .layout = .{
                             .direction = .top_to_bottom,
                             .sizing = .{ .w = .fixed(8), .h = .grow },
+                            .padding = .{ .top = @intFromFloat(thumb_y) },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
-                        clay.UI()(.{
-                            .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(@floatFromInt(thumb_y_i)) } },
-                        })({});
-
                         const thumb = w.app.Button(thumb_eid, .{
                             .bg_color = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
-                            .click_color = .{ .role = .scrollbar_track },
-                            .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(@floatFromInt(thumb_h_i)) } },
+                            .click_color = .{ .role = .scrollbar_thumb },
+                            .frame = .{
+                                .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
+                            },
                         }, .{});
                         thumb.widget.render();
                     });
