@@ -101,23 +101,22 @@ pub const ScrollWidget = struct {
                     );
 
                     clay.UI()(.{
-                        .id = track_eid,
+                        .id     = track_eid,
                         .layout = .{
                             .direction = .top_to_bottom,
-                            .sizing = .{ .w = .fixed(8), .h = .grow },
-                            .padding = .{ .top = @intCast(thumb_y_i) },
+                            .sizing    = .{ .w = .fixed(8), .h = .fixed(@floatFromInt(ch_i)) }, // ← fixed!
+                            .padding   = .{ .top = @intCast(thumb_y_i) },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
                         const thumb = w.app.Button(thumb_eid, .{
-                            .bg_color = .{ .role = .scrollbar_thumb },
+                            .bg_color    = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
                             .click_color = .{ .role = .scrollbar_track },
                             .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(@floatFromInt(thumb_h_i)) } },
                         }, .{});
                         thumb.widget.render();
                     });
-                }
             }
         });
     }
