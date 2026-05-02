@@ -30,6 +30,6 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(test_exe);
 
     const run = b.addRunArtifact(test_exe);
-    const run_step = b.step("run", "Run test app");
+    const run_step = b.step("test", "Run test app");
     run_step.dependOn(&run.step);
 }

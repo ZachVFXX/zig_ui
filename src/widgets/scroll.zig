@@ -1,7 +1,7 @@
 const Widget = @import("../app.zig").Widget;
 const RowWidget = @import("row.zig").RowWidget;
 const ButtonWidget = @import("button.zig").ButtonWidget;
-
+const std = @import("std");
 const Color = @import("../color.zig").Color;
 const clay = @import("zclay");
 const renderer = @import("../raylib.zig");
@@ -17,18 +17,21 @@ pub const ScrollWidget = struct {
 
     pub fn render(ptr: *anyopaque, w: Widget, children: []const Widget) void {
         const self: *ScrollWidget = @ptrCast(@alignCast(ptr));
+
         const content_eid = clay.ElementId.fromSrcI(@src(), w.id.id);
         const track_eid = clay.ElementId.fromSrcI(@src(), w.id.id + 1);
         const thumb_eid = clay.ElementId.fromSrcI(@src(), w.id.id + 2);
 
         const sc = clay.getScrollContainerData(content_eid);
 
+        // Input
         if (sc.found) {
             const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
             if (ct > ch) {
                 const max_scroll = ct - ch;
                 const cur_y = sc.scroll_position.*.y;
+                const thumb_h = @max(20.0, ch * (ch / ct));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
@@ -38,15 +41,19 @@ pub const ScrollWidget = struct {
                 if (w.app.interactImpl(track_eid, false) == .mouse_released) {
                     const td = clay.getElementData(track_eid);
                     if (td.found) {
-                        const thumb_h = @max(20.0, ch * (ch / ct));
                         const rel_y = ray.GetMousePosition().y - td.bounding_box.y;
-                        const new_t = @max(0.0, @min(1.0, (rel_y - thumb_h * 0.5) / (ch - thumb_h)));
+                        const new_t = std.math.clamp(
+                            (rel_y - thumb_h * 0.5) / (ch - thumb_h),
+                            0.0,
+                            1.0,
+                        );
                         sc.scroll_position.*.y = -new_t * max_scroll;
                     }
                 }
             }
         }
 
+        // Layout
         clay.UI()(.{
             .id = w.id,
             .layout = .{ .direction = .left_to_right, .sizing = self.frame.sizing },
@@ -69,14 +76,16 @@ pub const ScrollWidget = struct {
                 for (children) |child| child.render();
             });
 
+            // scrollbar
             if (sc.found) {
                 const ch = sc.scroll_container_dimensions.h;
                 const ct = sc.content_dimensions.h;
                 if (ct > ch) {
                     const max_scroll = ct - ch;
-                    const t = @max(0.0, @min(1.0, -sc.scroll_position.*.y / max_scroll));
+                    const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
                     const thumb_h = @max(20.0, ch * (ch / ct));
-                    const thumb_y = t * (ch - thumb_h);
+                    // clamp so thumb never overflows track
+                    const thumb_y = @min(t * (ch - thumb_h), ch - thumb_h);
 
                     clay.UI()(.{
                         .id = track_eid,
@@ -84,18 +93,23 @@ pub const ScrollWidget = struct {
                             .direction = .top_to_bottom,
                             .sizing = .{ .w = .fixed(8), .h = .grow },
                         },
-                        .background_color = self.color.resolve(w.app.palette),
+                        .background_color = w.app.palette.fromRole(.scrollbar_track),
                         .corner_radius = .all(4),
                     })({
+                        // spacer
                         clay.UI()(.{
                             .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_y) } },
                         })({});
 
-                        const thumb = w.app.Button(thumb_eid, ButtonWidget{
+                        // thumb
+                        const thumb = w.app.Button(thumb_eid, .{
                             .bg_color = .{ .role = .scrollbar_thumb },
-                            .click_color = .{ .role = .scrollbar_track },
                             .hover_color = .{ .role = .scrollbar_hover },
-                            .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_h) } },
+                            .click_color = .{ .role = .scrollbar_track },
+                            .frame = .{
+                                .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
+                                .corner_radius = 4,
+                            },
                         }, .{});
                         thumb.widget.render();
                     });
