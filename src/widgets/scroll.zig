@@ -90,16 +90,6 @@ pub const ScrollWidget = struct {
                     const available = @floor(ch - thumb_h);
                     const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
 
-                    // thumb color
-                    const is_dragging = if (w.app.interaction.active) |a| a.id == thumb_eid.id else false;
-                    const is_hovered = clay.pointerOver(thumb_eid);
-                    const thumb_color = if (is_dragging)
-                        w.app.palette.fromRole(.scrollbar_track)
-                    else if (is_hovered)
-                        w.app.palette.fromRole(.scrollbar_hover)
-                    else
-                        w.app.palette.fromRole(.scrollbar_thumb);
-
                     clay.UI()(.{
                         .id = track_eid,
                         .layout = .{
@@ -109,11 +99,15 @@ pub const ScrollWidget = struct {
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
-                        clay.UI()(.{
-                            .id = thumb_eid,
-                            .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_h) } },
-                            .background_color = thumb_color,
-                        })({});
+                        const thumb = w.app.Button(thumb_eid, .{
+                            .bg_color = .{ .role = .scrollbar_thumb },
+                            .hover_color = .{ .role = .scrollbar_hover },
+                            .click_color = .{ .role = .scrollbar_track },
+                            .frame = .{
+                                .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
+                            },
+                        }, .{});
+                        thumb.widget.render();
                     });
                 }
             }
