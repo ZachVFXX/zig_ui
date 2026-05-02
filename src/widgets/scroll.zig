@@ -30,12 +30,11 @@ pub const ScrollWidget = struct {
             const ct = sc.content_dimensions.h;
             if (ct > ch) {
                 const max_scroll = ct - ch;
-                const thumb_h = @max(20.0, ch * (ch / ct));
+                const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
                     const new_y = sc.scroll_position.*.y - ray.GetMouseDelta().y * scale;
-                    // clamp position
                     sc.scroll_position.*.y = std.math.clamp(new_y, -max_scroll, 0.0);
                 }
 
@@ -43,8 +42,9 @@ pub const ScrollWidget = struct {
                     const td = clay.getElementData(track_eid);
                     if (td.found) {
                         const rel_y = ray.GetMousePosition().y - td.bounding_box.y;
+                        const available = @max(1.0, ch - thumb_h);
                         const new_t = std.math.clamp(
-                            (rel_y - thumb_h * 0.5) / @max(1.0, ch - thumb_h),
+                            (rel_y - thumb_h * 0.5) / available,
                             0.0,
                             1.0,
                         );
@@ -52,7 +52,7 @@ pub const ScrollWidget = struct {
                     }
                 }
 
-                // clamp scroll position every frame prevents drift
+                // clamp every frame
                 sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             }
         }
@@ -86,33 +86,34 @@ pub const ScrollWidget = struct {
                 if (ct > ch) {
                     const max_scroll = ct - ch;
                     const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
-                    const thumb_h = @max(20.0, ch * (ch / ct));
-                    const available = @max(0.0, ch - thumb_h);
-                    const thumb_y = std.math.clamp(t * available, 0.0, available);
+                    const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
+                    const available = @floor(ch - thumb_h);
+                    const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
+
+                    // thumb color
+                    const is_dragging = if (w.app.interaction.active) |a| a.id == thumb_eid.id else false;
+                    const is_hovered = clay.pointerOver(thumb_eid);
+                    const thumb_color = if (is_dragging)
+                        w.app.palette.fromRole(.scrollbar_track)
+                    else if (is_hovered)
+                        w.app.palette.fromRole(.scrollbar_hover)
+                    else
+                        w.app.palette.fromRole(.scrollbar_thumb);
 
                     clay.UI()(.{
                         .id = track_eid,
                         .layout = .{
                             .direction = .top_to_bottom,
                             .sizing = .{ .w = .fixed(8), .h = .grow },
+                            .padding = .{ .top = @intFromFloat(thumb_y) },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
-                        // spacer
                         clay.UI()(.{
-                            .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_y) } },
+                            .id = thumb_eid,
+                            .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_h) } },
+                            .background_color = thumb_color,
                         })({});
-
-                        // thumb
-                        const thumb = w.app.Button(thumb_eid, .{
-                            .bg_color = .{ .role = .scrollbar_thumb },
-                            .hover_color = .{ .role = .scrollbar_hover },
-                            .click_color = .{ .role = .scrollbar_track },
-                            .frame = .{
-                                .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
-                            },
-                        }, .{});
-                        thumb.widget.render();
                     });
                 }
             }
