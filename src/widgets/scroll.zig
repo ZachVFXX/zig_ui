@@ -94,7 +94,6 @@ pub const ScrollWidget = struct {
                             .sizing = .{ .w = .fixed(8), .h = .grow },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
-                        .corner_radius = .all(4),
                     })({
                         // spacer
                         clay.UI()(.{
@@ -108,7 +107,6 @@ pub const ScrollWidget = struct {
                             .click_color = .{ .role = .scrollbar_track },
                             .frame = .{
                                 .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
-                                .corner_radius = 4,
                             },
                         }, .{});
                         thumb.widget.render();
