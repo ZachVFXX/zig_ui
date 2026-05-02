@@ -28,12 +28,10 @@ pub const ScrollWidget = struct {
         if (sc.found) {
             const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
+            const max_scroll = @max(0.0, ct - ch);
+            sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
 
-            if (ct <= ch) {
-                // content fits in view and reset position handles resize down
-                sc.scroll_position.*.y = 0.0;
-            } else {
-                const max_scroll = ct - ch;
+            if (ct > ch) {
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
@@ -55,9 +53,6 @@ pub const ScrollWidget = struct {
                         sc.scroll_position.*.y = -new_t * max_scroll;
                     }
                 }
-
-                // clamp every frame and handles resize down
-                sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             }
         }
 
