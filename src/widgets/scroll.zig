@@ -104,11 +104,14 @@ pub const ScrollWidget = struct {
                         .id = track_eid,
                         .layout = .{
                             .direction = .top_to_bottom,
-                            .sizing = .{ .w = .fixed(8), .h = .fixed(@floatFromInt(ch_i)) }, // ← fixed!
-                            .padding = .{ .top = @intCast(thumb_y_i) },
+                            .sizing = .{ .w = .fixed(8), .h = .grow },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
+                        clay.UI()(.{
+                            .layout = .{ .sizing = .{ .w = .grow, .h = .fixed(@floatFromInt(thumb_y_i)) } },
+                        })({});
+
                         const thumb = w.app.Button(thumb_eid, .{
                             .bg_color = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
