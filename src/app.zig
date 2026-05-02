@@ -153,12 +153,6 @@ pub const App = struct {
         clay.setPointerState(.{ .x = ray.GetMousePosition().x, .y = ray.GetMousePosition().y }, ray.IsMouseButtonDown(ray.MOUSE_BUTTON_LEFT));
         clay.updateScrollContainers(false, .{ .x = ray.GetMouseWheelMoveV().x, .y = ray.GetMouseWheelMoveV().y }, ray.GetFrameTime());
 
-        // key events
-        var key = ray.GetKeyPressed();
-        while (key != 0) : (key = ray.GetKeyPressed()) {
-            self.events.append(self.alloc, .{ .key_pressed = key }) catch {};
-        }
-
         if (comptime builtin.mode == .Debug) {
             if (ray.IsKeyPressed(ray.KEY_H))
                 clay.setDebugModeEnabled(!clay.isDebugModeEnabled());
@@ -169,6 +163,13 @@ pub const App = struct {
         _ = self.frame_arena.reset(.retain_capacity);
         self.events.clearRetainingCapacity();
         self.interaction.hot = null;
+
+        // key events
+        var key = ray.GetKeyPressed();
+        while (key != 0) : (key = ray.GetKeyPressed()) {
+            self.events.append(self.alloc, .{ .key_pressed = key }) catch {};
+        }
+
         clay.beginLayout();
     }
 
