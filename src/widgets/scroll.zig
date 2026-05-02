@@ -102,7 +102,7 @@ pub const ScrollWidget = struct {
                         const thumb = w.app.Button(thumb_eid, .{
                             .bg_color = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
-                            .click_color = .{ .role = .scrollbar_track },
+                            .click_color = .{ .role = .scrollbar_thumb },
                             .frame = .{
                                 .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
                             },
