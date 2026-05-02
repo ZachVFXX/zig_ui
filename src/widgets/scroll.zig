@@ -78,7 +78,6 @@ pub const ScrollWidget = struct {
                 .clip = .{
                     .vertical = self.vertical,
                     .horizontal = self.horizontal,
-                    // use our clamped value — not sc.scroll_position.* which may be stale
                     .child_offset = .{ .x = 0, .y = scroll_y },
                 },
             })({
@@ -92,16 +91,21 @@ pub const ScrollWidget = struct {
                 if (ct > ch) {
                     const max_scroll = ct - ch;
                     const t = std.math.clamp(-scroll_y / max_scroll, 0.0, 1.0);
-                    const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
-                    const available = @floor(@max(0.0, ch - thumb_h));
-                    const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
+
+                    const ch_i: u32 = @intFromFloat(@floor(ch));
+                    const thumb_h_i: u32 = @max(20, @as(u32, @intFromFloat(@floor(ch * (ch / ct)))));
+                    const available_i: u32 = if (ch_i > thumb_h_i) ch_i - thumb_h_i else 0;
+                    const thumb_y_i: u32 = @min(
+                        @as(u32, @intFromFloat(@floor(t * @as(f32, @floatFromInt(available_i))))),
+                        available_i,
+                    );
 
                     clay.UI()(.{
                         .id = track_eid,
                         .layout = .{
                             .direction = .top_to_bottom,
                             .sizing = .{ .w = .fixed(8), .h = .grow },
-                            .padding = .{ .top = @intFromFloat(thumb_y) },
+                            .padding = .{ .top = thumb_y_i },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
@@ -109,7 +113,7 @@ pub const ScrollWidget = struct {
                             .bg_color = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
                             .click_color = .{ .role = .scrollbar_track },
-                            .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_h) } },
+                            .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(@floatFromInt(thumb_h_i)) } },
                         }, .{});
                         thumb.widget.render();
                     });
