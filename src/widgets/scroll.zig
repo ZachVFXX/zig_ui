@@ -24,22 +24,25 @@ pub const ScrollWidget = struct {
 
         const sc = clay.getScrollContainerData(content_eid);
 
-        // input
+        var scroll_y: f32 = 0.0;
+
         if (sc.found) {
-            const elem = clay.getElementData(w.id);
-            const ch = if (elem.found) elem.bounding_box.height else sc.scroll_container_dimensions.h;
+            const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
             const max_scroll = @max(0.0, ct - ch);
 
-            sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
+            const clamped = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
+            sc.scroll_position.*.y = clamped;
+            scroll_y = clamped;
 
             if (ct > ch) {
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
-                    const new_y = sc.scroll_position.*.y - ray.GetMouseDelta().y * scale;
+                    const new_y = clamped - ray.GetMouseDelta().y * scale;
                     sc.scroll_position.*.y = std.math.clamp(new_y, -max_scroll, 0.0);
+                    scroll_y = sc.scroll_position.*.y;
                 }
 
                 if (w.app.interactImpl(track_eid, false) == .mouse_released) {
@@ -53,12 +56,13 @@ pub const ScrollWidget = struct {
                             1.0,
                         );
                         sc.scroll_position.*.y = -new_t * max_scroll;
+                        scroll_y = sc.scroll_position.*.y;
                     }
                 }
             }
         }
 
-        // layout
+        // Layout
         clay.UI()(.{
             .id = w.id,
             .layout = .{ .direction = .left_to_right, .sizing = self.frame.sizing },
@@ -74,20 +78,20 @@ pub const ScrollWidget = struct {
                 .clip = .{
                     .vertical = self.vertical,
                     .horizontal = self.horizontal,
-                    .child_offset = if (sc.found) sc.scroll_position.* else .{ .x = 0, .y = 0 },
+                    // use our clamped value — not sc.scroll_position.* which may be stale
+                    .child_offset = .{ .x = 0, .y = scroll_y },
                 },
             })({
                 for (children) |child| child.render();
             });
 
-            // scrollbar
+            // Scrollbar
             if (sc.found) {
-                const elem = clay.getElementData(w.id);
-                const ch = if (elem.found) elem.bounding_box.height else sc.scroll_container_dimensions.h;
+                const ch = sc.scroll_container_dimensions.h;
                 const ct = sc.content_dimensions.h;
                 if (ct > ch) {
                     const max_scroll = ct - ch;
-                    const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
+                    const t = std.math.clamp(-scroll_y / max_scroll, 0.0, 1.0);
                     const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
                     const available = @floor(@max(0.0, ch - thumb_h));
                     const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
