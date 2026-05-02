@@ -26,9 +26,11 @@ pub const ScrollWidget = struct {
 
         // input
         if (sc.found) {
-            const ch = sc.scroll_container_dimensions.h;
+            const elem = clay.getElementData(w.id);
+            const ch = if (elem.found) elem.bounding_box.height else sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
             const max_scroll = @max(0.0, ct - ch);
+
             sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
 
             if (ct > ch) {
@@ -80,13 +82,14 @@ pub const ScrollWidget = struct {
 
             // scrollbar
             if (sc.found) {
-                const ch = sc.scroll_container_dimensions.h;
+                const elem = clay.getElementData(w.id);
+                const ch = if (elem.found) elem.bounding_box.height else sc.scroll_container_dimensions.h;
                 const ct = sc.content_dimensions.h;
                 if (ct > ch) {
                     const max_scroll = ct - ch;
                     const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
                     const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
-                    const available = @floor(ch - thumb_h);
+                    const available = @floor(@max(0.0, ch - thumb_h));
                     const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
 
                     clay.UI()(.{
@@ -101,10 +104,8 @@ pub const ScrollWidget = struct {
                         const thumb = w.app.Button(thumb_eid, .{
                             .bg_color = .{ .role = .scrollbar_thumb },
                             .hover_color = .{ .role = .scrollbar_hover },
-                            .click_color = .{ .role = .scrollbar_thumb },
-                            .frame = .{
-                                .sizing = .{ .w = .grow, .h = .fixed(thumb_h) },
-                            },
+                            .click_color = .{ .role = .scrollbar_track },
+                            .frame = .{ .sizing = .{ .w = .grow, .h = .fixed(thumb_h) } },
                         }, .{});
                         thumb.widget.render();
                     });
