@@ -105,7 +105,7 @@ pub const ScrollWidget = struct {
                         .layout = .{
                             .direction = .top_to_bottom,
                             .sizing = .{ .w = .fixed(8), .h = .grow },
-                            .padding = .{ .top = thumb_y_i },
+                            .padding = .{ .top = @intCast(thumb_y_i) },
                         },
                         .background_color = w.app.palette.fromRole(.scrollbar_track),
                     })({
