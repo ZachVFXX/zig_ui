@@ -28,7 +28,11 @@ pub const ScrollWidget = struct {
         if (sc.found) {
             const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
-            if (ct > ch) {
+
+            if (ct <= ch) {
+                // content fits in view and reset position handles resize down
+                sc.scroll_position.*.y = 0.0;
+            } else {
                 const max_scroll = ct - ch;
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
@@ -52,7 +56,7 @@ pub const ScrollWidget = struct {
                     }
                 }
 
-                // clamp every frame
+                // clamp every frame and handles resize down
                 sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             }
         }
