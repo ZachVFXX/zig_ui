@@ -14,6 +14,8 @@ pub const ScrollWidget = struct {
     vertical: bool = true,
     horizontal: bool = true,
     gap: u16 = 4,
+    last_ch: f32 = 0.0,
+    last_ct: f32 = 0.0,
 
     pub fn render(ptr: *anyopaque, w: Widget, children: []const Widget) void {
         const self: *ScrollWidget = @ptrCast(@alignCast(ptr));
@@ -31,20 +33,21 @@ pub const ScrollWidget = struct {
             const ct = sc.content_dimensions.h;
             const max_scroll = @max(0.0, ct - ch);
 
-            // --- PATCH: preserve ratio ---
-            const old_max = @max(0.0, ct - ch);
-            var t: f32 = 0.0;
+            // --- FIX: use previous frame dimensions ---
+            const old_max = @max(0.0, self.last_ct - self.last_ch);
 
+            var t: f32 = 0.0;
             if (old_max > 0.0) {
                 t = std.math.clamp(-sc.scroll_position.*.y / old_max, 0.0, 1.0);
             }
 
             sc.scroll_position.*.y = -t * max_scroll;
-
-            // Safety clamp
             sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             scroll_y = sc.scroll_position.*.y;
-            // --- END PATCH ---
+
+            // update cache for next frame
+            self.last_ch = ch;
+            self.last_ct = ct;
 
             if (ct > ch) {
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
@@ -73,7 +76,6 @@ pub const ScrollWidget = struct {
             }
         }
 
-        // Layout
         clay.UI()(.{
             .id = w.id,
             .layout = .{ .direction = .left_to_right, .sizing = self.frame.sizing },
@@ -95,7 +97,6 @@ pub const ScrollWidget = struct {
                 for (children) |child| child.render();
             });
 
-            // Scrollbar
             if (sc.found) {
                 const ch = sc.scroll_container_dimensions.h;
                 const ct = sc.content_dimensions.h;
