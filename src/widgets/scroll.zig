@@ -24,18 +24,19 @@ pub const ScrollWidget = struct {
 
         const sc = clay.getScrollContainerData(content_eid);
 
-        // Input
+        // input
         if (sc.found) {
             const ch = sc.scroll_container_dimensions.h;
             const ct = sc.content_dimensions.h;
             if (ct > ch) {
                 const max_scroll = ct - ch;
-                const cur_y = sc.scroll_position.*.y;
                 const thumb_h = @max(20.0, ch * (ch / ct));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
-                    sc.scroll_position.*.y = @max(-max_scroll, @min(0.0, cur_y - ray.GetMouseDelta().y * scale));
+                    const new_y = sc.scroll_position.*.y - ray.GetMouseDelta().y * scale;
+                    // clamp position
+                    sc.scroll_position.*.y = std.math.clamp(new_y, -max_scroll, 0.0);
                 }
 
                 if (w.app.interactImpl(track_eid, false) == .mouse_released) {
@@ -43,23 +44,25 @@ pub const ScrollWidget = struct {
                     if (td.found) {
                         const rel_y = ray.GetMousePosition().y - td.bounding_box.y;
                         const new_t = std.math.clamp(
-                            (rel_y - thumb_h * 0.5) / (ch - thumb_h),
+                            (rel_y - thumb_h * 0.5) / @max(1.0, ch - thumb_h),
                             0.0,
                             1.0,
                         );
                         sc.scroll_position.*.y = -new_t * max_scroll;
                     }
                 }
+
+                // clamp scroll position every frame prevents drift
+                sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
             }
         }
 
-        // Layout
+        // layout
         clay.UI()(.{
             .id = w.id,
             .layout = .{ .direction = .left_to_right, .sizing = self.frame.sizing },
             .background_color = self.color.resolve(w.app.palette),
         })({
-            // content area
             clay.UI()(.{
                 .id = content_eid,
                 .layout = .{
@@ -84,8 +87,8 @@ pub const ScrollWidget = struct {
                     const max_scroll = ct - ch;
                     const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
                     const thumb_h = @max(20.0, ch * (ch / ct));
-                    // clamp so thumb never overflows track
-                    const thumb_y = @min(t * (ch - thumb_h), ch - thumb_h);
+                    const available = @max(0.0, ch - thumb_h);
+                    const thumb_y = std.math.clamp(t * available, 0.0, available);
 
                     clay.UI()(.{
                         .id = track_eid,
