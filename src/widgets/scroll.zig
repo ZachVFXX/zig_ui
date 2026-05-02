@@ -31,16 +31,27 @@ pub const ScrollWidget = struct {
             const ct = sc.content_dimensions.h;
             const max_scroll = @max(0.0, ct - ch);
 
-            const clamped = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
-            sc.scroll_position.*.y = clamped;
-            scroll_y = clamped;
+            // --- PATCH: preserve ratio ---
+            const old_max = @max(0.0, ct - ch);
+            var t: f32 = 0.0;
+
+            if (old_max > 0.0) {
+                t = std.math.clamp(-sc.scroll_position.*.y / old_max, 0.0, 1.0);
+            }
+
+            sc.scroll_position.*.y = -t * max_scroll;
+
+            // Safety clamp
+            sc.scroll_position.*.y = std.math.clamp(sc.scroll_position.*.y, -max_scroll, 0.0);
+            scroll_y = sc.scroll_position.*.y;
+            // --- END PATCH ---
 
             if (ct > ch) {
                 const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
 
                 if (w.app.interactImpl(thumb_eid, true) == .mouse_pressed) {
                     const scale = ct / ch;
-                    const new_y = clamped - ray.GetMouseDelta().y * scale;
+                    const new_y = scroll_y - ray.GetMouseDelta().y * scale;
                     sc.scroll_position.*.y = std.math.clamp(new_y, -max_scroll, 0.0);
                     scroll_y = sc.scroll_position.*.y;
                 }
