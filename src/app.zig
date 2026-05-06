@@ -5,6 +5,7 @@ const ray = renderer.ray;
 const Color = @import("color.zig").Color;
 const Palette = @import("color.zig").Palette;
 const builtin = @import("builtin");
+
 const RowWidget = @import("widgets/row.zig").RowWidget;
 const ColumnWidget = @import("widgets/column.zig").ColumnWidget;
 const ScrollWidget = @import("widgets/scroll.zig").ScrollWidget;
@@ -12,6 +13,7 @@ const ButtonWidget = @import("widgets/button.zig").ButtonWidget;
 const ImageWidget = @import("widgets/image.zig").ImageWidget;
 const TextWidget = @import("widgets/text.zig").TextWidget;
 const SliderWidget = @import("widgets/slider.zig").SliderWidget;
+const TextBoxWidget = @import("widgets/textbox.zig").TextBoxWidget;
 
 pub const Widget = struct {
     id: clay.ElementId,
@@ -260,6 +262,11 @@ pub const App = struct {
         const data = self.alloc_widget(ScrollWidget, cfg);
         data.widget = .{ .id = id, .app = self, .data = data, .renderFn = ScrollWidget.render, .children = self.dupe(children) };
         return data;
+    }
+
+    pub fn TextBox(self: *App, id: clay.ElementId, cfg: *TextBoxWidget, children: anytype) *TextBoxWidget {
+        cfg.widget = .{ .id = id, .app = self, .data = cfg, .renderFn = TextBoxWidget.render, .children = self.dupe(children) };
+        return cfg;
     }
 
     pub fn uninit(self: *App) void {
