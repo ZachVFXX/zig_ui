@@ -14,7 +14,6 @@ const ImageWidget = @import("widgets/image.zig").ImageWidget;
 const TextWidget = @import("widgets/text.zig").TextWidget;
 const SliderWidget = @import("widgets/slider.zig").SliderWidget;
 const TextBoxWidget = @import("widgets/textbox.zig").TextBoxWidget;
-const ContextWidget = @import("widgets/context.zig").ContextWidget;
 
 pub const Widget = struct {
     id: clay.ElementId,
