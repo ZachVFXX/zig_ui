@@ -153,7 +153,7 @@ pub const App = struct {
             clay.setLayoutDimensions(.{ .w = @floatFromInt(self.width), .h = @floatFromInt(self.height) });
         }
         clay.setPointerState(.{ .x = ray.GetMousePosition().x, .y = ray.GetMousePosition().y }, ray.IsMouseButtonDown(ray.MOUSE_BUTTON_LEFT));
-        clay.updateScrollContainers(false, .{ .x = ray.GetMouseWheelMoveV().x, .y = ray.GetMouseWheelMoveV().y }, ray.GetFrameTime());
+        clay.updateScrollContainers(false, .{ .x = ray.GetMouseWheelMoveV().x * 2, .y = ray.GetMouseWheelMoveV().y * 2 }, ray.GetFrameTime());
 
         if (comptime builtin.mode == .Debug) {
             if (ray.IsKeyPressed(ray.KEY_H))
