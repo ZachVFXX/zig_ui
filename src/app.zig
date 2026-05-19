@@ -14,6 +14,7 @@ const ImageWidget = @import("widgets/image.zig").ImageWidget;
 const TextWidget = @import("widgets/text.zig").TextWidget;
 const SliderWidget = @import("widgets/slider.zig").SliderWidget;
 const TextBoxWidget = @import("widgets/textbox.zig").TextBoxWidget;
+const ContextWidget = @import("widgets/context.zig").ContextWidget;
 
 pub const Widget = struct {
     id: clay.ElementId,
@@ -198,12 +199,28 @@ pub const App = struct {
         const T = @TypeOf(child);
 
         if (T == Widget) return child;
-        if (@typeInfo(T) == .pointer) {
-            const Child = @typeInfo(T).pointer.child;
-            if (@hasField(Child, "widget")) return child.widget;
+
+        switch (@typeInfo(T)) {
+            .pointer => {
+                const Child = @typeInfo(T).pointer.child;
+
+                if (@hasField(Child, "widget")) {
+                    return child.widget;
+                }
+            },
+
+            .@"struct", .@"union", .@"enum" => {
+                if (@hasField(T, "widget")) {
+                    return child.widget;
+                }
+            },
+
+            else => {},
         }
-        if (@hasField(T, "widget")) return child.widget;
-        @compileError("expected Widget or a type with a .widget field, got " ++ @typeName(T));
+
+        @compileError(
+            "expected Widget or a type with a .widget field, got " ++ @typeName(T),
+        );
     }
 
     fn dupe(self: *App, children: anytype) []const Widget {
