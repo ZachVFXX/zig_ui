@@ -14,6 +14,7 @@ const ImageWidget = @import("widgets/image.zig").ImageWidget;
 const TextWidget = @import("widgets/text.zig").TextWidget;
 const SliderWidget = @import("widgets/slider.zig").SliderWidget;
 const TextBoxWidget = @import("widgets/textbox.zig").TextBoxWidget;
+const DropdownWidget = @import("widgets/dropdown.zig").DropdownWidget;
 
 pub const Widget = struct {
     id: clay.ElementId,
@@ -282,6 +283,11 @@ pub const App = struct {
 
     pub fn TextBox(self: *App, id: clay.ElementId, cfg: *TextBoxWidget, children: anytype) *TextBoxWidget {
         cfg.widget = .{ .id = id, .app = self, .data = cfg, .renderFn = TextBoxWidget.render, .children = self.dupe(children) };
+        return cfg;
+    }
+
+    pub fn Dropdown(self: *App, id: clay.ElementId, cfg: *DropdownWidget) *DropdownWidget {
+        cfg.widget = .{ .id = id, .app = self, .data = cfg, .renderFn = DropdownWidget.render };
         return cfg;
     }
 

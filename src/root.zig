@@ -14,3 +14,4 @@ pub const TextWidget = @import("widgets/text.zig").TextWidget;
 pub const ImageWidget = @import("widgets/image.zig").ImageWidget;
 pub const SliderWidget = @import("widgets/slider.zig").SliderWidget;
 pub const TextBoxWidget = @import("widgets/textbox.zig").TextBoxWidget;
+pub const DropdownWidget = @import("widgets/dropdown.zig").DropdownWidget;
