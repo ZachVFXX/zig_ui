@@ -59,6 +59,7 @@ pub const App = struct {
     interaction: Interaction,
     palette: Palette,
     events: std.ArrayListUnmanaged(Event),
+    interactive_ids: std.AutoHashMap(u32, void),
 
     pub fn init(alloc: std.mem.Allocator, title: []const u8, width: i32, height: i32, palette: Palette) !App {
         const c_path = try alloc.dupeSentinel(u8, title, 0);
@@ -80,6 +81,7 @@ pub const App = struct {
             .interaction = .{},
             .palette = palette,
             .events = .empty,
+            .interactive_ids = .init(alloc),
         };
     }
 
@@ -173,11 +175,19 @@ pub const App = struct {
 
         const ids = clay.getPointerOverIds();
 
-        if (ids.len > 0) {
-            self.interaction.top_hovered = ids[ids.len - 1];
-        } else {
-            self.interaction.top_hovered = null;
+        var top_interactive: ?clay.ElementId = null;
+
+        var i = ids.len;
+        while (i > 0) {
+            i -= 1;
+
+            if (self.interactive_ids.contains(ids[i].id)) {
+                top_interactive = ids[i];
+                break;
+            }
         }
+
+        self.interaction.top_hovered = top_interactive;
 
         // key events
         var key = ray.GetKeyPressed();
@@ -278,28 +288,33 @@ pub const App = struct {
     pub fn Button(self: *App, id: clay.ElementId, cfg: ButtonWidget, children: anytype) *ButtonWidget {
         const data = self.alloc_widget(ButtonWidget, cfg);
         data.widget = .{ .id = id, .app = self, .data = data, .renderFn = ButtonWidget.render, .children = self.dupe(children) };
+        self.interactive_ids.put(id.id, {}) catch unreachable;
         return data;
     }
 
     pub fn Slider(self: *App, id: clay.ElementId, cfg: SliderWidget) *SliderWidget {
         const data = self.alloc_widget(SliderWidget, cfg);
         data.widget = .{ .id = id, .app = self, .data = data, .renderFn = SliderWidget.render };
+        self.interactive_ids.put(id.id, {}) catch unreachable;
         return data;
     }
 
     pub fn Scroll(self: *App, id: clay.ElementId, cfg: ScrollWidget, children: anytype) *ScrollWidget {
         const data = self.alloc_widget(ScrollWidget, cfg);
         data.widget = .{ .id = id, .app = self, .data = data, .renderFn = ScrollWidget.render, .children = self.dupe(children) };
+        self.interactive_ids.put(id.id, {}) catch unreachable;
         return data;
     }
 
     pub fn TextBox(self: *App, id: clay.ElementId, cfg: *TextBoxWidget, children: anytype) *TextBoxWidget {
         cfg.widget = .{ .id = id, .app = self, .data = cfg, .renderFn = TextBoxWidget.render, .children = self.dupe(children) };
+        self.interactive_ids.put(id.id, {}) catch unreachable;
         return cfg;
     }
 
     pub fn Dropdown(self: *App, id: clay.ElementId, cfg: *DropdownWidget) *DropdownWidget {
         cfg.widget = .{ .id = id, .app = self, .data = cfg, .renderFn = DropdownWidget.render };
+        self.interactive_ids.put(id.id, {}) catch unreachable;
         return cfg;
     }
 
@@ -307,6 +322,7 @@ pub const App = struct {
         self.alloc.free(self.title);
         self.frame_arena.deinit();
         self.events.deinit(self.alloc);
+        self.interactive_ids.clearAndFree();
         self.alloc.free(self.memory);
         ray.CloseWindow();
         ray.CloseAudioDevice();
