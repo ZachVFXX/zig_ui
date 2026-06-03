@@ -249,7 +249,7 @@ pub const App = struct {
         const T = @TypeOf(child);
 
         if (T == Widget) {
-            list.appendAssumeCapacity(child);
+            list.append(alloc, child);
             return;
         }
 
@@ -266,14 +266,14 @@ pub const App = struct {
                 if (@typeInfo(Child) == .@"struct" and
                     @hasField(Child, "widget"))
                 {
-                    list.appendAssumeCapacity(child.widget);
+                    list.append(alloc, child.widget);
                     return;
                 }
             },
 
             .@"struct" => {
                 if (@hasField(T, "widget")) {
-                    list.appendAssumeCapacity(child.widget);
+                    list.append(alloc, child.widget);
                     return;
                 }
 
