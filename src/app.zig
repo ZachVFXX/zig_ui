@@ -249,7 +249,7 @@ pub const App = struct {
         const T = @TypeOf(child);
 
         if (T == Widget) {
-            list.append(alloc, child);
+            list.append(alloc, child) catch unreachable;
             return;
         }
 
@@ -266,14 +266,14 @@ pub const App = struct {
                 if (@typeInfo(Child) == .@"struct" and
                     @hasField(Child, "widget"))
                 {
-                    list.append(alloc, child.widget);
+                    list.append(alloc, child.widget) catch unreachable;
                     return;
                 }
             },
 
             .@"struct" => {
                 if (@hasField(T, "widget")) {
-                    list.append(alloc, child.widget);
+                    list.append(alloc, child.widget) catch unreachable;
                     return;
                 }
 
