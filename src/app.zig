@@ -245,24 +245,65 @@ pub const App = struct {
         );
     }
 
-    fn dupe(self: *App, children: anytype) []const Widget {
-        const T = @TypeOf(children);
+    fn appendChildren(alloc: std.mem.Allocator, list: *std.ArrayList(Widget), child: anytype) void {
+        const T = @TypeOf(child);
 
-        // handle []Widget and []const Widget slices
-        if (@typeInfo(T) == .pointer) {
-            const p = @typeInfo(T).pointer;
-            if (p.size == .slice) {
-                const s = self.frame_arena.allocator().alloc(Widget, children.len) catch @panic("OOM");
-                for (children, 0..) |c, i| s[i] = toWidget(c);
-                return s;
-            }
+        if (T == Widget) {
+            list.appendAssumeCapacity(child);
+            return;
         }
 
-        // handle tuples / anonymous structs
-        const fields = std.meta.fields(T);
-        const s = self.frame_arena.allocator().alloc(Widget, fields.len) catch @panic("OOM");
-        inline for (fields, 0..) |_, i| s[i] = toWidget(children[i]);
-        return s;
+        switch (@typeInfo(T)) {
+            .pointer => |p| {
+                if (p.size == .slice) {
+                    for (child) |elem| {
+                        appendChildren(alloc, list, elem);
+                    }
+                    return;
+                }
+
+                const Child = p.child;
+                if (@typeInfo(Child) == .@"struct" and
+                    @hasField(Child, "widget"))
+                {
+                    list.appendAssumeCapacity(child.widget);
+                    return;
+                }
+            },
+
+            .@"struct" => {
+                if (@hasField(T, "widget")) {
+                    list.appendAssumeCapacity(child.widget);
+                    return;
+                }
+
+                const fields = std.meta.fields(T);
+
+                inline for (fields, 0..) |_, i| {
+                    appendChildren(alloc, list, child[i]);
+                }
+                return;
+            },
+
+            else => {},
+        }
+
+        @compileError("unsupported child type: " ++ @typeName(T));
+    }
+
+    fn dupe(self: *App, children: anytype) []const Widget {
+        var list = std.ArrayList(Widget).initCapacity(
+            self.frame_arena.allocator(),
+            32,
+        ) catch @panic("OOM");
+
+        appendChildren(
+            self.frame_arena.allocator(),
+            &list,
+            children,
+        );
+
+        return list.toOwnedSlice(self.frame_arena.allocator()) catch @panic("OOM");
     }
 
     pub fn Row(self: *App, id: clay.ElementId, cfg: RowWidget, children: anytype) Widget {
