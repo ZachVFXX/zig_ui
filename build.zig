@@ -15,6 +15,10 @@ pub fn build(b: *std.Build) void {
     my_module.addImport("zclay", zclay_dep.module("zclay"));
     my_module.linkLibrary(raylib);
 
+    const freetype_dep = b.dependency("freetype", .{ .target = target, .optimize = optimize });
+    const freetype = freetype_dep.artifact("freetype");
+    my_module.linkLibrary(freetype);
+
     // module séparé pour le test
     const test_module = b.createModule(.{
         .root_source_file = b.path("test/main.zig"),

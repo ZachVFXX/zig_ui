@@ -90,7 +90,14 @@ pub const App = struct {
     }
 
     pub fn interactImpl(self: *App, id: clay.ElementId, release_anywhere: bool) enum { mouse_hovered, mouse_pressed, mouse_released, none } {
-        const is_hovered = clay.pointerOver(id);
+        const ids = clay.getPointerOverIds();
+        var is_hovered = false;
+        for (ids) |value| {
+            if (value.id == id.id) {
+                is_hovered = true;
+            }
+        }
+
         const pressed = ray.IsMouseButtonPressed(ray.MOUSE_LEFT_BUTTON);
         const down = ray.IsMouseButtonDown(ray.MOUSE_LEFT_BUTTON);
         const released = ray.IsMouseButtonReleased(ray.MOUSE_LEFT_BUTTON);

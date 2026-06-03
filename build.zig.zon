@@ -40,6 +40,10 @@
             .url = "git+https://github.com/johan0A/clay-zig-bindings.git#e0286c488a303b93501944ccde10730cc74ecd58",
             .hash = "zclay-0.2.2-Ej1rkP3RAACYZGzQB5NGPaqfySgKfO26NYk5Ja6Z15gC",
         },
+        .freetype = .{
+            .url = "git+https://code.hexops.org/hexops/freetype.git#1d0f0f11162275d67d3db2cb4905ed5c659b8a41",
+            .hash = "freetype-0.0.0-Oa073aaddgBS9kbmOT8NQP-kfpHr3YJgIASnj5V9PsZX",
+        },
     },
     .paths = .{
         "build.zig",
