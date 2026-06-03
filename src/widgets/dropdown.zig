@@ -60,7 +60,7 @@ pub const DropdownWidget = struct {
                 .direction = .top_to_bottom,
             },
         })({
-            // Trigger
+            // Triggerid
             clay.UI()(.{
                 .id = trigger_id,
                 .layout = .{
@@ -72,6 +72,7 @@ pub const DropdownWidget = struct {
                 },
                 .background_color = trigger_bg.resolve(palette),
             })({
+                app.interactive_ids.put(trigger_id.id, {}) catch unreachable;
                 // Selected text
                 clay.text(
                     (if (self.options.len > 0) self.options[self.selected] else ""),
@@ -104,6 +105,7 @@ pub const DropdownWidget = struct {
                     for (self.options, 0..) |option, i| {
                         const item_id = clay.ElementId.IDI("__dd_item", w.id.id +% @as(u32, @intCast(i)));
                         const item_ev = app.interactImpl(item_id, false);
+                        app.interactive_ids.put(item_id.id, {}) catch unreachable;
 
                         if (item_ev == .mouse_released) {
                             self.selected = i;
