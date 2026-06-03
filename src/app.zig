@@ -40,6 +40,7 @@ pub const Event = union(enum) {
 const Interaction = struct {
     hot: ?clay.ElementId = null,
     active: ?clay.ElementId = null,
+    top_hovered: ?clay.ElementId = null,
 };
 
 export fn printClayError(errors: clay.ErrorData) void {
@@ -90,13 +91,9 @@ pub const App = struct {
     }
 
     pub fn interactImpl(self: *App, id: clay.ElementId, release_anywhere: bool) enum { mouse_hovered, mouse_pressed, mouse_released, none } {
-        const ids = clay.getPointerOverIds();
-        var is_hovered = false;
-        for (ids) |value| {
-            if (value.id == id.id) {
-                is_hovered = true;
-            }
-        }
+        const is_hovered =
+            self.interaction.top_hovered != null and
+            self.interaction.top_hovered.?.id == id.id;
 
         const pressed = ray.IsMouseButtonPressed(ray.MOUSE_LEFT_BUTTON);
         const down = ray.IsMouseButtonDown(ray.MOUSE_LEFT_BUTTON);
@@ -173,6 +170,14 @@ pub const App = struct {
         _ = self.frame_arena.reset(.retain_capacity);
         self.events.clearRetainingCapacity();
         self.interaction.hot = null;
+
+        const ids = clay.getPointerOverIds();
+
+        if (ids.len > 0) {
+            self.interaction.top_hovered = ids[ids.len - 1];
+        } else {
+            self.interaction.top_hovered = null;
+        }
 
         // key events
         var key = ray.GetKeyPressed();
