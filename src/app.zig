@@ -90,6 +90,7 @@ pub const App = struct {
         const font = ray.LoadFontFromMemory(".ttf", @ptrCast(file_data.ptr), @intCast(file_data.len), font_size * 2, null, 0);
         renderer.raylib_fonts[font_id] = font;
         ray.SetTextureFilter(font.texture, ray.TEXTURE_FILTER_BILINEAR);
+        try renderer.loadHarfbuzzFont(font_id, file_data, font_size);
     }
 
     pub fn interactImpl(self: *App, id: clay.ElementId, release_anywhere: bool) enum { mouse_hovered, mouse_pressed, mouse_released, none } {

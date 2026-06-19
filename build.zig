@@ -4,6 +4,10 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const zclay_dep = b.dependency("zclay", .{ .target = target, .optimize = optimize });
     const raylib_dep = b.dependency("raylib", .{ .target = target, .optimize = optimize });
+    const harfbuzz_dep = b.dependency("harfbuzz", .{
+        .target = target,
+        .optimize = optimize,
+    });
     const raylib = raylib_dep.artifact("raylib");
     raylib.root_module.addCMacro("SUPPORT_FILEFORMAT_JPG", "1");
 
@@ -15,9 +19,9 @@ pub fn build(b: *std.Build) void {
     my_module.addImport("zclay", zclay_dep.module("zclay"));
     my_module.linkLibrary(raylib);
 
-    const freetype_dep = b.dependency("freetype", .{ .target = target, .optimize = optimize });
-    const freetype = freetype_dep.artifact("freetype");
-    my_module.linkLibrary(freetype);
+    my_module.addImport("harfbuzz", harfbuzz_dep.module("harfbuzz"));
+    const harfbuzz = harfbuzz_dep.artifact("harfbuzz");
+    my_module.linkLibrary(harfbuzz);
 
     // module séparé pour le test
     const test_module = b.createModule(.{
@@ -26,6 +30,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     test_module.addImport("zig_ui", my_module);
+    test_module.addImport("harfbuzz", my_module);
 
     const test_exe = b.addExecutable(.{
         .name = "test_app",

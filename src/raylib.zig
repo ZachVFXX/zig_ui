@@ -4,6 +4,7 @@ pub const ray = @cImport({
 });
 const cl = @import("zclay");
 const math = std.math;
+const hb = @import("harfbuzz");
 
 pub fn clayColorToRaylibColor(color: cl.Color) ray.Color {
     return ray.Color{
@@ -15,6 +16,40 @@ pub fn clayColorToRaylibColor(color: cl.Color) ray.Color {
 }
 
 pub var raylib_fonts: [10]?ray.Font = @splat(null);
+
+const SUBPIXEL_BITS: i32 = 6;
+const SUBPIXEL_SCALE: i32 = 1 << SUBPIXEL_BITS; // 64, like FreeType's 26.6
+
+pub const HbFontSlot = struct {
+    font: *hb.c.hb_font_t,
+    /// true if the face has color glyphs (COLR/CPAL/CBDT/sbix/SVG) -> use
+    /// hb_raster_paint_*, otherwise use hb_raster_draw_* (outline coverage).
+    is_color: bool,
+};
+
+pub var hb_font_slots: [10]?HbFontSlot = @splat(null);
+
+pub fn loadHarfbuzzFont(font_id: usize, file_data: []const u8, font_size: i32) !void {
+    const blob = hb.c.hb_blob_create(
+        file_data.ptr,
+        @intCast(file_data.len),
+        hb.c.HB_MEMORY_MODE_READONLY,
+        null,
+        null,
+    ) orelse return error.FontLoadFailed;
+    std.debug.print("VERSION {s}\n", .{hb.versionString()});
+
+    const face = hb.c.hb_face_create(blob, 0) orelse return error.FontLoadFailed;
+
+    const font = hb.c.hb_font_create(face) orelse return error.FontLoadFailed;
+    hb.c.hb_font_set_scale(font, font_size * SUBPIXEL_SCALE, font_size * SUBPIXEL_SCALE);
+
+    const is_color = hb.c.hb_ot_color_has_paint(face) != 0 or
+        hb.c.hb_ot_color_has_layers(face) != 0 or
+        hb.c.hb_ot_color_has_png(face) != 0;
+
+    hb_font_slots[font_id] = .{ .font = font, .is_color = is_color };
+}
 
 pub fn clayRaylibRender(render_commands: []cl.RenderCommand, gpa: std.mem.Allocator) !void {
     var arena = std.heap.ArenaAllocator.init(gpa);
@@ -28,20 +63,298 @@ pub fn clayRaylibRender(render_commands: []cl.RenderCommand, gpa: std.mem.Alloca
             .none => {},
             .text => {
                 const config = render_command.render_data.text;
-                const text = config.string_contents.chars[0..@intCast(config.string_contents.length)];
-                // Raylib uses standard C strings so isn't compatible with cheap slices, we need to clone the string to append null terminator
-                const cloned = try arena.allocator().dupeZ(u8, text);
-                defer arena.allocator().free(cloned);
+                const text =
+                    config.string_contents.chars[0..@intCast(config.string_contents.length)];
 
-                const fontToUse: ray.Font = raylib_fonts[config.font_id].?;
-                ray.SetTextLineSpacing(config.line_height);
-                ray.DrawTextEx(
-                    fontToUse,
-                    cloned,
-                    ray.Vector2{ .x = bounding_box.x, .y = bounding_box.y },
-                    @floatFromInt(config.font_size),
-                    @floatFromInt(config.letter_spacing),
-                    clayColorToRaylibColor(config.text_color),
+                const slot = hb_font_slots[config.font_id] orelse continue;
+
+                const font_size: i32 = @intCast(config.font_size);
+
+                hb.c.hb_font_set_scale(
+                    slot.font,
+                    font_size * SUBPIXEL_SCALE,
+                    font_size * SUBPIXEL_SCALE,
+                );
+
+                //------------------------
+                // Shape
+                //------------------------
+
+                const buf = hb.c.hb_buffer_create();
+                defer hb.c.hb_buffer_destroy(buf);
+
+                hb.c.hb_buffer_add_utf8(
+                    buf,
+                    text.ptr,
+                    @intCast(text.len),
+                    0,
+                    @intCast(text.len),
+                );
+
+                hb.c.hb_buffer_guess_segment_properties(buf);
+
+                hb.c.hb_shape(
+                    slot.font,
+                    buf,
+                    null,
+                    0,
+                );
+
+                const len = hb.c.hb_buffer_get_length(buf);
+
+                if (len == 0)
+                    continue;
+
+                const info =
+                    hb.c.hb_buffer_get_glyph_infos(buf, null);
+
+                const pos =
+                    hb.c.hb_buffer_get_glyph_positions(buf, null);
+
+                //---------------------------------
+                // Compute text extents
+                //---------------------------------
+
+                var width: f32 = 0;
+
+                for (0..len) |i| {
+                    width += @as(
+                        f32,
+                        @floatFromInt(pos[i].x_advance),
+                    );
+                }
+
+                var h_ext: hb.c.hb_font_extents_t = undefined;
+
+                _ = hb.c.hb_font_get_h_extents(
+                    slot.font,
+                    &h_ext,
+                );
+
+                const ascender: i32 = @divTrunc(h_ext.ascender, SUBPIXEL_SCALE);
+                const descender: i32 = @divTrunc((-h_ext.descender), SUBPIXEL_SCALE);
+
+                const height =
+                    @as(f32, @floatFromInt(
+                        ascender + descender,
+                    ));
+
+                var ext: hb.c.hb_raster_extents_t = .{
+                    .x_origin = 0,
+                    .y_origin = 0,
+                    .width = @intFromFloat(@ceil(width / SUBPIXEL_SCALE)),
+                    .height = @intFromFloat(@ceil(height)),
+                    .stride = @intFromFloat(@ceil(width / SUBPIXEL_SCALE)),
+                };
+
+                //---------------------------------
+                // Rasterizer
+                //---------------------------------
+
+                const img = blk: {
+                    if (slot.is_color) {
+                        const p =
+                            hb.c.hb_raster_paint_create_or_fail() orelse continue;
+
+                        defer hb.c.hb_raster_paint_destroy(p);
+
+                        var pen_x: f32 = 0;
+                        var pen_y: f32 = 0;
+
+                        for (0..len) |i| {
+                            const gx =
+                                pen_x +
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].x_offset),
+                                );
+
+                            const gy =
+                                pen_y +
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].y_offset),
+                                );
+
+                            hb.c.hb_raster_paint_set_extents(
+                                p,
+                                &ext,
+                            );
+
+                            hb.c.hb_raster_paint_set_scale_factor(p, SUBPIXEL_SCALE, SUBPIXEL_SCALE);
+                            hb.c.hb_raster_paint_set_transform(
+                                p,
+                                1,
+                                0,
+                                0,
+                                1,
+                                gx,
+                                gy,
+                            );
+
+                            hb.c.hb_raster_paint_glyph(
+                                p,
+                                slot.font,
+                                info[i].codepoint,
+                            );
+
+                            pen_x +=
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].x_advance),
+                                );
+
+                            pen_y +=
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].y_advance),
+                                );
+                        }
+
+                        break :blk hb.c.hb_raster_paint_render(p);
+                    } else {
+                        const d =
+                            hb.c.hb_raster_draw_create_or_fail() orelse continue;
+
+                        defer hb.c.hb_raster_draw_destroy(d);
+
+                        var pen_x: f32 = 0;
+                        var pen_y: f32 = 0;
+
+                        for (0..len) |i| {
+                            const gx =
+                                pen_x +
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].x_offset),
+                                );
+
+                            const gy =
+                                pen_y +
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].y_offset),
+                                );
+
+                            hb.c.hb_raster_draw_set_extents(
+                                d,
+                                &ext,
+                            );
+
+                            hb.c.hb_raster_draw_set_scale_factor(d, SUBPIXEL_SCALE, SUBPIXEL_SCALE);
+
+                            hb.c.hb_raster_draw_set_transform(
+                                d,
+                                1,
+                                0,
+                                0,
+                                1,
+                                gx,
+                                gy,
+                            );
+
+                            hb.c.hb_raster_draw_glyph(
+                                d,
+                                slot.font,
+                                info[i].codepoint,
+                            );
+
+                            pen_x +=
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].x_advance),
+                                );
+
+                            pen_y +=
+                                @as(
+                                    f32,
+                                    @floatFromInt(pos[i].y_advance),
+                                );
+                        }
+
+                        break :blk hb.c.hb_raster_draw_render(d);
+                    }
+                };
+
+                const raster = img orelse continue;
+                defer hb.c.hb_raster_image_destroy(raster);
+
+                //---------------------------------
+                // Raylib
+                //---------------------------------
+
+                const src =
+                    hb.c.hb_raster_image_get_buffer(raster) orelse continue;
+
+                const format =
+                    hb.c.hb_raster_image_get_format(raster);
+
+                hb.c.hb_raster_image_get_extents(
+                    raster,
+                    &ext,
+                );
+
+                const count =
+                    @as(usize, ext.width) *
+                    @as(usize, ext.height);
+
+                const copy = try arena.allocator().alloc(
+                    u8,
+                    count * 4,
+                );
+                if (format == hb.c.HB_RASTER_FORMAT_A8) {
+                    for (0..count) |i| {
+                        const a = src[i];
+
+                        copy[i * 4 + 0] = 255;
+                        copy[i * 4 + 1] = 255;
+                        copy[i * 4 + 2] = 255;
+                        copy[i * 4 + 3] = a;
+                    }
+                } else {
+                    for (0..count) |i| {
+                        copy[i * 4 + 0] = src[i * 4 + 2];
+                        copy[i * 4 + 1] = src[i * 4 + 1];
+                        copy[i * 4 + 2] = src[i * 4 + 0];
+                        copy[i * 4 + 3] = src[i * 4 + 3];
+                    }
+                }
+
+                const row_size = @as(usize, ext.width) * 4;
+
+                var tmp = try arena.allocator().alloc(u8, copy.len);
+
+                for (0..ext.height) |y| {
+                    const src_y = ext.height - 1 - y;
+
+                    @memcpy(
+                        tmp[y * row_size .. (y + 1) * row_size],
+                        copy[src_y * row_size .. (src_y + 1) * row_size],
+                    );
+                }
+
+                @memcpy(copy, tmp);
+
+                const img_ray = ray.Image{
+                    .data = copy.ptr,
+                    .width = @intCast(ext.width),
+                    .height = @intCast(ext.height),
+                    .mipmaps = 1,
+                    .format = ray.PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
+                };
+
+                const tex =
+                    ray.LoadTextureFromImage(img_ray);
+
+                ray.DrawTextureV(
+                    tex,
+                    .{
+                        .x = bounding_box.x + @as(f32, @floatFromInt(ext.x_origin)),
+                        .y = bounding_box.y + @as(f32, @floatFromInt(ext.y_origin)),
+                    },
+                    clayColorToRaylibColor(
+                        config.text_color,
+                    ),
                 );
             },
             .image => {
@@ -187,45 +500,95 @@ pub fn clayRaylibRender(render_commands: []cl.RenderCommand, gpa: std.mem.Alloca
         }
     }
 }
+
 pub fn measureText(clay_text: []const u8, config: *cl.TextElementConfig, _: void) cl.Dimensions {
-    const font = raylib_fonts[config.font_id].?;
-    const font_size: f32 = @floatFromInt(config.font_size);
-    const letter_spacing: f32 = @floatFromInt(config.letter_spacing);
-    const line_height = config.line_height;
-    var temp_byte_counter: usize = 0;
-    var byte_counter: usize = 0;
-    var text_width: f32 = 0.0;
-    var temp_text_width: f32 = 0.0;
-    var text_height: f32 = font_size;
-    const scale_factor: f32 = font_size / @as(f32, @floatFromInt(font.baseSize));
+    const font_size: i32 = @intCast(config.font_size);
 
-    const view = std.unicode.Utf8View.init(clay_text) catch {
-        return .{ .w = 0, .h = font_size };
+    const slot = hb_font_slots[config.font_id] orelse {
+        const count =
+            std.unicode.utf8CountCodepoints(clay_text) catch clay_text.len;
+
+        return .{
+            .w = @as(f32, @floatFromInt(count)) *
+                @as(f32, @floatFromInt(font_size)) * 0.6,
+            .h = @floatFromInt(font_size),
+        };
     };
-    var utf8 = view.iterator();
 
-    while (utf8.nextCodepoint()) |codepoint| {
-        byte_counter += std.unicode.utf8CodepointSequenceLength(codepoint) catch 1;
-        const index: usize = @intCast(ray.GetGlyphIndex(font, @as(i32, @intCast(codepoint))));
+    // IMPORTANT:
+    // use the same scale as rendering
+    hb.c.hb_font_set_scale(
+        slot.font,
+        font_size * SUBPIXEL_SCALE,
+        font_size * SUBPIXEL_SCALE,
+    );
 
-        if (codepoint != '\n') {
-            if (font.glyphs[index].advanceX != 0) {
-                text_width += @floatFromInt(font.glyphs[index].advanceX);
-            } else {
-                text_width += font.recs[index].width + @as(f32, @floatFromInt(font.glyphs[index].offsetX));
-            }
-        } else {
-            if (temp_text_width < text_width) temp_text_width = text_width;
-            byte_counter = 0;
-            text_width = 0;
-            text_height += font_size + @as(f32, @floatFromInt(line_height));
+    var max_width: f32 = 0;
+    var line_count: usize = 0;
+
+    var lines = std.mem.splitScalar(
+        u8,
+        clay_text,
+        '\n',
+    );
+
+    while (lines.next()) |line| {
+        line_count += 1;
+
+        const buf = hb.c.hb_buffer_create();
+        defer hb.c.hb_buffer_destroy(buf);
+
+        hb.c.hb_buffer_add_utf8(
+            buf,
+            line.ptr,
+            @intCast(line.len),
+            0,
+            @intCast(line.len),
+        );
+
+        hb.c.hb_buffer_guess_segment_properties(buf);
+
+        hb.c.hb_shape(
+            slot.font,
+            buf,
+            null,
+            0,
+        );
+
+        const len = hb.c.hb_buffer_get_length(buf);
+
+        if (len == 0)
+            continue;
+
+        const pos = hb.c.hb_buffer_get_glyph_positions(
+            buf,
+            null,
+        );
+
+        var width: f32 = 0;
+
+        for (0..len) |i| {
+            width += @as(
+                f32,
+                @floatFromInt(pos[i].x_advance),
+            ) / SUBPIXEL_SCALE;
         }
-        if (temp_byte_counter < byte_counter) temp_byte_counter = byte_counter;
+
+        if (width > max_width)
+            max_width = width;
     }
 
-    if (temp_text_width < text_width) temp_text_width = text_width;
-    return cl.Dimensions{
-        .h = text_height,
-        .w = temp_text_width * scale_factor + (@as(f32, @floatFromInt(temp_byte_counter)) - 1) * letter_spacing,
+    if (line_count == 0)
+        line_count = 1;
+
+    const line_height =
+        if (config.line_height > 0)
+            @as(f32, @floatFromInt(config.line_height))
+        else
+            @as(f32, @floatFromInt(font_size));
+
+    return .{
+        .w = max_width,
+        .h = line_height * @as(f32, @floatFromInt(line_count)),
     };
 }
