@@ -41,8 +41,8 @@
             .hash = "zclay-0.2.2-Ej1rkP3RAACYZGzQB5NGPaqfySgKfO26NYk5Ja6Z15gC",
         },
         .harfbuzz = .{
-            .url = "git+https://github.com/allyourcodebase/harfbuzz.git#d055840ecefefcd57f5ddeb2fa8c83fafed1a40b",
-            .hash = "harfbuzz-14.1.0-Ip1VAuGZAAC1jdxPHOMPoHyi-50Hm_q4bveaVflELHGw",
+            .url = "git+https://github.com/ZachVFXX/harfbuzz.git#c68598cbfc6cfd9ad5ec0edb7bacd31350eb4836",
+            .hash = "harfbuzz-14.1.0-Ip1VAuyaAABYiZ3gFYeJb0Ir7EZRwhGsBE46k12BYfyw",
         },
     },
     .paths = .{
