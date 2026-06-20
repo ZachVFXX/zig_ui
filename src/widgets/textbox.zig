@@ -3,8 +3,8 @@ const Widget = @import("../app.zig").Widget;
 const RowWidget = @import("row.zig").RowWidget;
 const Color = @import("../color.zig").Color;
 const clay = @import("zclay");
-const renderer = @import("../raylib.zig");
-const ray = renderer.ray;
+const renderer = @import("../renderer.zig");
+const ray = @import("../raylib.zig").rl;
 
 pub const TextBoxWidget = struct {
     widget: Widget = undefined,

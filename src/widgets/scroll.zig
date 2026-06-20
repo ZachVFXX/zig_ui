@@ -4,8 +4,8 @@ const ButtonWidget = @import("button.zig").ButtonWidget;
 const std = @import("std");
 const Color = @import("../color.zig").Color;
 const clay = @import("zclay");
-const renderer = @import("../raylib.zig");
-const ray = renderer.ray;
+const renderer = @import("../renderer.zig");
+const ray = @import("../raylib.zig").rl;
 
 pub const ScrollWidget = struct {
     widget: Widget = undefined,
@@ -83,7 +83,7 @@ pub const ScrollWidget = struct {
                     const max_scroll = ct - ch;
                     const t = std.math.clamp(-sc.scroll_position.*.y / max_scroll, 0.0, 1.0);
                     const thumb_h = @floor(@max(20.0, ch * (ch / ct)));
-                    const available = @floor(ch - thumb_h);
+                    const available = @max(0.0, ch - thumb_h);
                     const thumb_y = @floor(std.math.clamp(t * available, 0.0, available));
 
                     clay.UI()(.{

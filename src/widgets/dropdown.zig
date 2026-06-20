@@ -1,7 +1,7 @@
 const Widget = @import("../app.zig").Widget;
 const clay = @import("zclay");
 const Color = @import("../color.zig").Color;
-const ray = @import("../raylib.zig").ray;
+const ray = @import("../raylib.zig").rl;
 const ScrollWidget = @import("scroll.zig").ScrollWidget;
 const std = @import("std");
 

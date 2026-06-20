@@ -14,7 +14,8 @@ pub fn main(init: std.process.Init) !void {
     var app = try ui.App.init(init.gpa, "Dropdown Demo", 600, 400, .{});
     defer app.uninit();
 
-    try app.loadFont(@embedFile("assets/Roboto-Regular.ttf"), 0, 16);
+    try app.loadFont(@embedFile("assets/NotoColorEmoji-Regular.ttf"), 1, 16);
+    try app.loadFont(@embedFile("assets/NotoSans-Regular.ttf"), 0, 16);
 
     var state: State = .{};
 
@@ -39,7 +40,7 @@ pub fn main(init: std.process.Init) !void {
                     app.Text(.ID("suuu"), .{ .text = "suuuu" }),
                 }),
             }),
-            app.Scroll(.ID("TESTTT"), .{}, .{app.Text(.ID("UTF8"), .{ .text = @embedFile("assets/test.txt") })}),
+            app.Scroll(.ID("TESTTT"), .{}, .{app.Text(.ID("UTF8"), .{ .text = "✅😃🙂‍↕️", .font_id = 1 })}),
         });
 
         app.endLayout(root);
