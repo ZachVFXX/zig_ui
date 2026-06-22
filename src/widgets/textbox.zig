@@ -5,6 +5,7 @@ const Color = @import("../color.zig").Color;
 const clay = @import("zclay");
 const renderer = @import("../renderer.zig");
 const ray = @import("../raylib.zig").rl;
+const Harfbuzz = @import("../harbuzz.zig");
 
 pub const TextBoxWidget = struct {
     widget: Widget = undefined,
@@ -66,8 +67,6 @@ pub const TextBoxWidget = struct {
         if (text.len == 0) return 0;
 
         const rel = mouse_x - box_x - @as(f32, @floatFromInt(self.frame.padding.left));
-        const font = renderer.raylib_fonts[self.font_id].?;
-        const fs: f32 = @floatFromInt(self.font_size);
 
         var best_pos: usize = 0;
         var best_dist: f32 = std.math.floatMax(f32);
@@ -84,7 +83,8 @@ pub const TextBoxWidget = struct {
             const copy_len = @min(i, tmp.len - 1);
             @memcpy(tmp[0..copy_len], text[0..copy_len]);
             tmp[copy_len] = 0;
-            const w = ray.MeasureTextEx(font, &tmp, fs, 0).x;
+            var config: clay.TextElementConfig = .{ .font_id = self.font_id, .font_size = self.font_size };
+            const w = Harfbuzz.measureText(&tmp, &config, {}).w;
             const dist = @abs(w - rel);
             if (dist < best_dist) {
                 best_dist = dist;

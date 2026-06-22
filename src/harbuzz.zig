@@ -39,11 +39,7 @@ pub fn loadFont(alloc: std.mem.Allocator, font_id: i32, file_data: []const u8, f
 
 pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_size: i32, text_color: ray.Color, bounding_box: cl.BoundingBox) !void {
     if (font_textures.contains(text)) {
-        ray.DrawTextureV(
-            font_textures.get(text).?,
-            .{ .x = bounding_box.x, .y = bounding_box.y },
-            text_color,
-        );
+        ray.DrawTextureV(font_textures.get(text).?, .{ .x = bounding_box.x, .y = bounding_box.y }, text_color);
     } else {
         const slot = hb_font_slots.get(font_id) orelse return;
 
@@ -70,23 +66,15 @@ pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_
 
         hb.c.hb_buffer_guess_segment_properties(buf);
 
-        hb.c.hb_shape(
-            slot.font,
-            buf,
-            null,
-            0,
-        );
+        hb.c.hb_shape(slot.font, buf, null, 0);
 
         const len = hb.c.hb_buffer_get_length(buf);
 
-        if (len == 0)
-            return;
+        if (len == 0) return;
 
-        const info =
-            hb.c.hb_buffer_get_glyph_infos(buf, null);
+        const info = hb.c.hb_buffer_get_glyph_infos(buf, null);
 
-        const pos =
-            hb.c.hb_buffer_get_glyph_positions(buf, null);
+        const pos = hb.c.hb_buffer_get_glyph_positions(buf, null);
 
         //---------------------------------
         // Compute text extents
@@ -95,26 +83,17 @@ pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_
         var width: f32 = 0;
 
         for (0..len) |i| {
-            width += @as(
-                f32,
-                @floatFromInt(pos[i].x_advance),
-            );
+            width += @as(f32, @floatFromInt(pos[i].x_advance));
         }
 
         var h_ext: hb.c.hb_font_extents_t = undefined;
 
-        _ = hb.c.hb_font_get_h_extents(
-            slot.font,
-            &h_ext,
-        );
+        _ = hb.c.hb_font_get_h_extents(slot.font, &h_ext);
 
         const ascender: i32 = @divTrunc(h_ext.ascender, SUBPIXEL_SCALE);
         const descender: i32 = @divTrunc((-h_ext.descender), SUBPIXEL_SCALE);
 
-        const height =
-            @as(f32, @floatFromInt(
-                ascender + descender,
-            ));
+        const height = @as(f32, @floatFromInt(ascender + descender));
 
         var ext: hb.c.hb_raster_extents_t = .{
             .x_origin = 0,
@@ -139,114 +118,45 @@ pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_
                 var pen_y: f32 = 0;
 
                 for (0..len) |i| {
-                    const gx =
-                        pen_x +
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].x_offset),
-                        );
+                    const gx = pen_x + @as(f32, @floatFromInt(pos[i].x_offset));
 
-                    const gy =
-                        pen_y +
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].y_offset),
-                        );
+                    const gy = pen_y + @as(f32, @floatFromInt(pos[i].y_offset));
 
-                    hb.c.hb_raster_paint_set_extents(
-                        p,
-                        &ext,
-                    );
+                    hb.c.hb_raster_paint_set_extents(p, &ext);
 
                     hb.c.hb_raster_paint_set_scale_factor(p, SUBPIXEL_SCALE, SUBPIXEL_SCALE);
-                    hb.c.hb_raster_paint_set_transform(
-                        p,
-                        1,
-                        0,
-                        0,
-                        1,
-                        gx,
-                        gy,
-                    );
+                    hb.c.hb_raster_paint_set_transform(p, 1, 0, 0, 1, gx, gy);
 
-                    hb.c.hb_raster_paint_glyph(
-                        p,
-                        slot.font,
-                        info[i].codepoint,
-                    );
+                    hb.c.hb_raster_paint_glyph(p, slot.font, info[i].codepoint);
 
-                    pen_x +=
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].x_advance),
-                        );
+                    pen_x += @as(f32, @floatFromInt(pos[i].x_advance));
 
-                    pen_y +=
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].y_advance),
-                        );
+                    pen_y += @as(f32, @floatFromInt(pos[i].y_advance));
                 }
-
                 break :blk hb.c.hb_raster_paint_render(p);
             } else {
-                const d =
-                    hb.c.hb_raster_draw_create_or_fail() orelse return;
-
+                const d = hb.c.hb_raster_draw_create_or_fail() orelse return;
                 defer hb.c.hb_raster_draw_destroy(d);
 
                 var pen_x: f32 = 0;
                 var pen_y: f32 = 0;
 
                 for (0..len) |i| {
-                    const gx =
-                        pen_x +
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].x_offset),
-                        );
+                    const gx = pen_x + @as(f32, @floatFromInt(pos[i].x_offset));
 
-                    const gy =
-                        pen_y +
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].y_offset),
-                        );
+                    const gy = pen_y + @as(f32, @floatFromInt(pos[i].y_offset));
 
-                    hb.c.hb_raster_draw_set_extents(
-                        d,
-                        &ext,
-                    );
+                    hb.c.hb_raster_draw_set_extents(d, &ext);
 
                     hb.c.hb_raster_draw_set_scale_factor(d, SUBPIXEL_SCALE, SUBPIXEL_SCALE);
 
-                    hb.c.hb_raster_draw_set_transform(
-                        d,
-                        1,
-                        0,
-                        0,
-                        1,
-                        gx,
-                        gy,
-                    );
+                    hb.c.hb_raster_draw_set_transform(d, 1, 0, 0, 1, gx, gy);
 
-                    hb.c.hb_raster_draw_glyph(
-                        d,
-                        slot.font,
-                        info[i].codepoint,
-                    );
+                    hb.c.hb_raster_draw_glyph(d, slot.font, info[i].codepoint);
 
-                    pen_x +=
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].x_advance),
-                        );
+                    pen_x += @as(f32, @floatFromInt(pos[i].x_advance));
 
-                    pen_y +=
-                        @as(
-                            f32,
-                            @floatFromInt(pos[i].y_advance),
-                        );
+                    pen_y += @as(f32, @floatFromInt(pos[i].y_advance));
                 }
 
                 break :blk hb.c.hb_raster_draw_render(d);
@@ -260,30 +170,20 @@ pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_
         // Raylib
         //---------------------------------
 
-        const src =
-            hb.c.hb_raster_image_get_buffer(raster) orelse return;
+        const src = hb.c.hb_raster_image_get_buffer(raster) orelse return;
 
-        const format =
-            hb.c.hb_raster_image_get_format(raster);
+        const format = hb.c.hb_raster_image_get_format(raster);
 
-        hb.c.hb_raster_image_get_extents(
-            raster,
-            &ext,
-        );
+        hb.c.hb_raster_image_get_extents(raster, &ext);
 
-        const count =
-            @as(usize, ext.width) *
-            @as(usize, ext.height);
+        const count = @as(usize, ext.width) * @as(usize, ext.height);
 
-        const copy = try alloc.alloc(
-            u8,
-            count * 4,
-        );
+        const copy = try alloc.alloc(u8, count * 4);
         defer alloc.free(copy);
+
         if (format == hb.c.HB_RASTER_FORMAT_A8) {
             for (0..count) |i| {
                 const a = src[i];
-
                 copy[i * 4 + 0] = 255;
                 copy[i * 4 + 1] = 255;
                 copy[i * 4 + 2] = 255;
@@ -305,11 +205,7 @@ pub fn draw_text(alloc: std.mem.Allocator, text: []const u8, font_id: u16, font_
 
         for (0..ext.height) |y| {
             const src_y = ext.height - 1 - y;
-
-            @memcpy(
-                tmp[y * row_size .. (y + 1) * row_size],
-                copy[src_y * row_size .. (src_y + 1) * row_size],
-            );
+            @memcpy(tmp[y * row_size .. (y + 1) * row_size], copy[src_y * row_size .. (src_y + 1) * row_size]);
         }
 
         @memcpy(copy, tmp);
@@ -393,24 +289,16 @@ pub fn measureText(clay_text: []const u8, config: *cl.TextElementConfig, _: void
         var width: f32 = 0;
 
         for (0..len) |i| {
-            width += @as(
-                f32,
-                @floatFromInt(pos[i].x_advance),
-            ) / SUBPIXEL_SCALE;
+            width += @as(f32, @floatFromInt(pos[i].x_advance)) / SUBPIXEL_SCALE;
         }
 
-        if (width > max_width)
-            max_width = width;
+        if (width > max_width) max_width = width;
     }
 
-    if (line_count == 0)
-        line_count = 1;
+    if (line_count == 0) line_count = 1;
 
     const line_height =
-        if (config.line_height > 0)
-            @as(f32, @floatFromInt(config.line_height))
-        else
-            @as(f32, @floatFromInt(font_size));
+        if (config.line_height > 0) @as(f32, @floatFromInt(config.line_height)) else @as(f32, @floatFromInt(font_size));
 
     return .{
         .w = max_width,

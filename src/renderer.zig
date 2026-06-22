@@ -2,7 +2,7 @@ const std = @import("std");
 const ray = @import("raylib.zig").rl;
 const cl = @import("zclay");
 const math = std.math;
-const Harfbuzz = @import("harbuzz.zig");
+pub const Harfbuzz = @import("harbuzz.zig");
 
 pub fn clayColorToRaylibColor(color: cl.Color) ray.Color {
     return ray.Color{
